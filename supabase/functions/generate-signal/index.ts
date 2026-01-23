@@ -19,16 +19,23 @@ serve(async (req) => {
       throw new Error('BOTHUB_API_KEY is not configured');
     }
 
-    // Build feedback context
+    // Calculate probability based on feedback history (0-92%)
+    let probability = 46; // Base probability (middle of 0-92)
     let feedbackContext = "";
+    
     if (feedbackHistory && feedbackHistory.length > 0) {
       const positiveCount = feedbackHistory.filter((f: string) => f === '+').length;
-      const negativeCount = feedbackHistory.filter((f: string) => f === '-').length;
+      const totalCount = feedbackHistory.length;
+      
+      // Calculate accuracy-based probability: (positive/total) * 92
+      probability = Math.round((positiveCount / totalCount) * 92);
+      // Ensure bounds 0-92
+      probability = Math.max(0, Math.min(92, probability));
       
       if (lang === "ru") {
-        feedbackContext = `\n\nИСТОРИЯ ПОЛЬЗОВАТЕЛЯ: Последние сигналы - ${positiveCount} ✅ правильных, ${negativeCount} ❌ неправильных. Учти предпочтения пользователя в анализе.`;
+        feedbackContext = `\n\nИСТОРИЯ ПОЛЬЗОВАТЕЛЯ: Последние сигналы - ${positiveCount} ✅ правильных из ${totalCount}. Учти предпочтения пользователя в анализе.`;
       } else {
-        feedbackContext = `\n\nUSER HISTORY: Recent signals - ${positiveCount} ✅ correct, ${negativeCount} ❌ incorrect. Consider user preferences in analysis.`;
+        feedbackContext = `\n\nUSER HISTORY: Recent signals - ${positiveCount} ✅ correct out of ${totalCount}. Consider user preferences in analysis.`;
       }
     }
 
@@ -86,7 +93,7 @@ REASON: brief explanation`;
     
     console.log('AI Response:', content);
 
-    // Parse the AI response
+    // Parse direction
     const contentUpper = content.toUpperCase();
     let direction = 'BUY';
     if (contentUpper.includes('SELL') || contentUpper.includes('ПРОДАВАЙ')) {
@@ -95,17 +102,7 @@ REASON: brief explanation`;
       direction = 'BUY';
     }
 
-    // Parse probability
-    const probMatch = content.match(/(\d{1,2})\s*%?/);
-    let probability = 78;
-    if (probMatch) {
-      const parsed = parseInt(probMatch[1]);
-      if (parsed >= 70 && parsed <= 95) {
-        probability = parsed;
-      }
-    }
-
-    // Parse reason
+    // Parse reason (probability is calculated from feedback, not AI)
     let reason = lang === "ru" ? "Анализ графических паттернов" : "Chart pattern analysis";
     const lines = content.split('\n');
     for (const line of lines) {

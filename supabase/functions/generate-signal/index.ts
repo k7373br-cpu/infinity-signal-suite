@@ -19,42 +19,36 @@ serve(async (req) => {
       throw new Error('BOTHUB_API_KEY is not configured');
     }
 
-    // Calculate probability based on feedback history (0-92%)
-    let probability = 46; // Base probability (middle of 0-92)
+    // Build feedback context for AI
     let feedbackContext = "";
-    
     if (feedbackHistory && feedbackHistory.length > 0) {
       const positiveCount = feedbackHistory.filter((f: string) => f === '+').length;
       const totalCount = feedbackHistory.length;
-      
-      // Calculate accuracy-based probability: (positive/total) * 92
-      probability = Math.round((positiveCount / totalCount) * 92);
-      // Ensure bounds 0-92
-      probability = Math.max(0, Math.min(92, probability));
+      const accuracy = Math.round((positiveCount / totalCount) * 100);
       
       if (lang === "ru") {
-        feedbackContext = `\n\nИСТОРИЯ ПОЛЬЗОВАТЕЛЯ: Последние сигналы - ${positiveCount} ✅ правильных из ${totalCount}. Учти предпочтения пользователя в анализе.`;
+        feedbackContext = `\n\nИСТОРИЯ ТОЧНОСТИ: ${positiveCount} правильных из ${totalCount} сигналов (${accuracy}% точность). Учитывай это при оценке вероятности.`;
       } else {
-        feedbackContext = `\n\nUSER HISTORY: Recent signals - ${positiveCount} ✅ correct out of ${totalCount}. Consider user preferences in analysis.`;
+        feedbackContext = `\n\nACCURACY HISTORY: ${positiveCount} correct out of ${totalCount} signals (${accuracy}% accuracy). Consider this when estimating probability.`;
       }
     }
 
     const prompt = lang === "ru" 
       ? `Ты профессиональный трейдер. Проанализируй ${instrument} на таймфрейме ${timeframe}.${feedbackContext}
 
-Дай свой анализ и торговую рекомендацию. Будь уверен в своем анализе.
+Дай свой анализ и торговую рекомендацию.
 
 ВАЖНО: Ответь СТРОГО в формате:
 СИГНАЛ: BUY или SELL
-ВЕРОЯТНОСТЬ: число от 70 до 95
+ВЕРОЯТНОСТЬ: число от 0 до 92 (основываясь на истории точности и текущем анализе)
 ОБОСНОВАНИЕ: краткое объяснение на русском`
       : `You are a professional trader. Analyze ${instrument} on ${timeframe} timeframe.${feedbackContext}
 
-Give your analysis and trading recommendation. Be confident in your analysis.
+Give your analysis and trading recommendation.
 
 IMPORTANT: Reply STRICTLY in format:
 SIGNAL: BUY or SELL
-PROBABILITY: number from 70 to 95
+PROBABILITY: number from 0 to 92 (based on accuracy history and current analysis)
 REASON: brief explanation`;
 
     console.log('Calling BotHub API for:', instrument, timeframe);
@@ -102,7 +96,15 @@ REASON: brief explanation`;
       direction = 'BUY';
     }
 
-    // Parse reason (probability is calculated from feedback, not AI)
+    // Parse probability from AI response (0-92)
+    let probability = 46; // Default
+    const probMatch = content.match(/(?:ВЕРОЯТНОСТЬ|PROBABILITY)[:\s]*(\d{1,2})/i);
+    if (probMatch) {
+      const parsed = parseInt(probMatch[1]);
+      probability = Math.max(0, Math.min(92, parsed));
+    }
+
+    // Parse reason
     let reason = lang === "ru" ? "Анализ графических паттернов" : "Chart pattern analysis";
     const lines = content.split('\n');
     for (const line of lines) {

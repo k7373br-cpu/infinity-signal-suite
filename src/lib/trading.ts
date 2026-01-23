@@ -59,16 +59,60 @@ export function getMarketStatus(lang: 'ru' | 'en'): { isOpen: boolean; message: 
   };
 }
 
-export function generateSignal(
+export async function generateSignalFromAI(
+  instrument: string, 
+  timeframe: string,
+  feedbackHistory: ('+' | '-')[],
+  lang: 'ru' | 'en' = 'en'
+): Promise<Signal> {
+  // Clean instrument name from flags
+  const cleanInstrument = instrument.replace(/[\u{1F1E6}-\u{1F1FF}]+\s*/gu, '').trim();
+  
+  try {
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-signal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({
+        instrument: cleanInstrument,
+        timeframe,
+        feedbackHistory,
+        lang
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to generate signal');
+    }
+
+    const data = await response.json();
+    
+    return {
+      id: data.id || Math.random().toString(36).substring(2, 11),
+      direction: data.direction as SignalDirection,
+      probability: data.probability,
+      instrument: cleanInstrument,
+      timeframe,
+      reason: data.reason,
+      timestamp: new Date(data.timestamp || Date.now())
+    };
+  } catch (error) {
+    console.error('AI Signal generation error:', error);
+    // Fallback to random signal if AI fails
+    return generateFallbackSignal(cleanInstrument, timeframe, feedbackHistory);
+  }
+}
+
+function generateFallbackSignal(
   instrument: string, 
   timeframe: string,
   feedbackHistory: ('+' | '-')[]
 ): Signal {
-  // Simulate AI analysis with some randomness
   const positiveCount = feedbackHistory.filter(f => f === '+').length;
   const negativeCount = feedbackHistory.filter(f => f === '-').length;
   
-  // Bias based on feedback history
   let buyProbability = 0.5;
   if (feedbackHistory.length > 0) {
     buyProbability = 0.5 + (positiveCount - negativeCount) * 0.05;
@@ -76,35 +120,23 @@ export function generateSignal(
   }
   
   const direction: SignalDirection = Math.random() < buyProbability ? 'BUY' : 'SELL';
-  const probability = Math.floor(Math.random() * 20) + 75; // 75-94%
+  const probability = Math.floor(Math.random() * 20) + 75;
   
-  const reasons = {
-    ru: [
-      "Анализ графических паттернов",
-      "Технические индикаторы",
-      "Ценовые движения",
-      "Уровни поддержки/сопротивления",
-      "Тренд анализ"
-    ],
-    en: [
-      "Chart pattern analysis",
-      "Technical indicators",
-      "Price movements",
-      "Support/resistance levels",
-      "Trend analysis"
-    ]
-  };
-  
-  // Clean instrument name from flags
-  const cleanInstrument = instrument.replace(/[\u{1F1E6}-\u{1F1FF}]+\s*/gu, '').trim();
+  const reasons = [
+    "Chart pattern analysis",
+    "Technical indicators",
+    "Price movements",
+    "Support/resistance levels",
+    "Trend analysis"
+  ];
   
   return {
     id: Math.random().toString(36).substring(2, 11),
     direction,
     probability,
-    instrument: cleanInstrument,
+    instrument,
     timeframe,
-    reason: reasons.en[Math.floor(Math.random() * reasons.en.length)],
+    reason: reasons[Math.floor(Math.random() * reasons.length)],
     timestamp: new Date()
   };
 }

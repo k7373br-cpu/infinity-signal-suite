@@ -43,7 +43,7 @@ REASON: brief explanation`;
         messages: [
           {
             role: 'system',
-            content: 'You are an expert trading analyst. Follow the format exactly.'
+            content: 'You are an expert trading analyst. Always follow the format strictly. Do not include probability.'
           },
           {
             role: 'user',

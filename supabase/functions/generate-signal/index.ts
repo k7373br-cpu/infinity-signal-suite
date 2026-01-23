@@ -40,7 +40,7 @@ serve(async (req) => {
 
 ВАЖНО: Ответь СТРОГО в формате:
 СИГНАЛ: BUY или SELL
-ВЕРОЯТНОСТЬ: число от 0 до 92 (основываясь на истории точности и текущем анализе)
+ВЕРОЯТНОСТЬ: число от 50 до 92 (основываясь на истории точности и текущем анализе)
 ОБОСНОВАНИЕ: краткое объяснение на русском`
       : `You are a professional trader. Analyze ${instrument} on ${timeframe} timeframe.${feedbackContext}
 
@@ -48,7 +48,7 @@ Give your analysis and trading recommendation.
 
 IMPORTANT: Reply STRICTLY in format:
 SIGNAL: BUY or SELL
-PROBABILITY: number from 0 to 92 (based on accuracy history and current analysis)
+PROBABILITY: number from 50 to 92 (based on accuracy history and current analysis)
 REASON: brief explanation`;
 
     console.log('Calling BotHub API for:', instrument, timeframe);
@@ -96,12 +96,12 @@ REASON: brief explanation`;
       direction = 'BUY';
     }
 
-    // Parse probability from AI response (0-92)
-    let probability = 46; // Default
+    // Parse probability from AI response (50-92)
+    let probability = 70; // Default
     const probMatch = content.match(/(?:ВЕРОЯТНОСТЬ|PROBABILITY)[:\s]*(\d{1,2})/i);
     if (probMatch) {
       const parsed = parseInt(probMatch[1]);
-      probability = Math.max(0, Math.min(92, parsed));
+      probability = Math.max(50, Math.min(92, parsed));
     }
 
     // Parse reason

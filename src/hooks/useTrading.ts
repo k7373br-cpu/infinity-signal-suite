@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Language, UserStatus, VERIFICATION_CODES } from '@/lib/constants';
-import { Signal, UserStats, generateSignal, isMarketOpen } from '@/lib/trading';
+import { Signal, UserStats, generateSignalFromAI, isMarketOpen } from '@/lib/trading';
 
 const STORAGE_KEY = 'infinity_traffic_state';
 
@@ -89,26 +89,29 @@ export function useTrading() {
     
     setIsGenerating(true);
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
-    
-    const signal = generateSignal(pair, timeframe, state.stats.feedbackHistory);
-    
-    setState(prev => ({
-      ...prev,
-      currentSignal: signal,
-      selectedPair: pair,
-      selectedTimeframe: timeframe,
-      stats: {
-        ...prev.stats,
-        signalsUsed: prev.stats.signalsUsed + 1,
-        lastSignal: signal
-      }
-    }));
-    
-    setIsGenerating(false);
-    return signal;
-  }, [canGenerateSignal, state.stats.feedbackHistory]);
+    try {
+      const signal = await generateSignalFromAI(pair, timeframe, state.stats.feedbackHistory, state.language);
+      
+      setState(prev => ({
+        ...prev,
+        currentSignal: signal,
+        selectedPair: pair,
+        selectedTimeframe: timeframe,
+        stats: {
+          ...prev.stats,
+          signalsUsed: prev.stats.signalsUsed + 1,
+          lastSignal: signal
+        }
+      }));
+      
+      setIsGenerating(false);
+      return signal;
+    } catch (error) {
+      console.error('Error generating signal:', error);
+      setIsGenerating(false);
+      return null;
+    }
+  }, [canGenerateSignal, state.stats.feedbackHistory, state.language]);
 
   const addFeedback = useCallback((feedback: '+' | '-') => {
     setState(prev => ({

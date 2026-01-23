@@ -6,14 +6,13 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { instrument, timeframe, feedbackHistory, lang } = await req.json();
-    
+
     const BOTHUB_API_KEY = Deno.env.get('BOTHUB_API_KEY');
     if (!BOTHUB_API_KEY) {
       throw new Error('BOTHUB_API_KEY is not configured');
@@ -25,22 +24,21 @@ serve(async (req) => {
       const positiveCount = feedbackHistory.filter((f: string) => f === '+').length;
       const totalCount = feedbackHistory.length;
       const accuracy = Math.round((positiveCount / totalCount) * 100);
-      
+
       if (lang === "ru") {
-        feedbackContext = `\n\nИСТОРИЯ ТОЧНОСТИ: ${positiveCount} правильных из ${totalCount} сигналов (${accuracy}% точность). Учитывай это при оценке вероятности.`;
+        feedbackContext = `\n\nИСТОРИЯ ТОЧНОСТИ: ${positiveCount} правильных из ${totalCount} сигналов (${accuracy}% точность).`;
       } else {
-        feedbackContext = `\n\nACCURACY HISTORY: ${positiveCount} correct out of ${totalCount} signals (${accuracy}% accuracy). Consider this when estimating probability.`;
+        feedbackContext = `\n\nACCURACY HISTORY: ${positiveCount} correct out of ${totalCount} signals (${accuracy}% accuracy).`;
       }
     }
 
-    const prompt = lang === "ru" 
+    const prompt = lang === "ru"
       ? `Ты профессиональный трейдер. Проанализируй ${instrument} на таймфрейме ${timeframe}.${feedbackContext}
 
 Дай свой анализ и торговую рекомендацию.
 
 ВАЖНО: Ответь СТРОГО в формате:
 СИГНАЛ: BUY или SELL
-ВЕРОЯТНОСТЬ: число от 50 до 92 (основываясь на истории точности и текущем анализе)
 ОБОСНОВАНИЕ: краткое объяснение на русском`
       : `You are a professional trader. Analyze ${instrument} on ${timeframe} timeframe.${feedbackContext}
 
@@ -48,7 +46,6 @@ Give your analysis and trading recommendation.
 
 IMPORTANT: Reply STRICTLY in format:
 SIGNAL: BUY or SELL
-PROBABILITY: number from 50 to 92 (based on accuracy history and current analysis)
 REASON: brief explanation`;
 
     console.log('Calling BotHub API for:', instrument, timeframe);
@@ -64,7 +61,7 @@ REASON: brief explanation`;
         messages: [
           {
             role: 'system',
-            content: 'You are an expert trading analyst. Always provide confident trading signals with probability estimates. Follow the format exactly.'
+            content: 'You are an expert trading analyst. Always provide confident trading signals. Follow the format exactly.'
           },
           {
             role: 'user',
@@ -84,7 +81,7 @@ REASON: brief explanation`;
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
-    
+
     console.log('AI Response:', content);
 
     // Parse direction
@@ -96,12 +93,15 @@ REASON: brief explanation`;
       direction = 'BUY';
     }
 
-    // Parse probability from AI response (50-92)
-    let probability = 70; // Default
-    const probMatch = content.match(/(?:ВЕРОЯТНОСТЬ|PROBABILITY)[:\s]*(\d{1,2})/i);
-    if (probMatch) {
-      const parsed = parseInt(probMatch[1]);
-      probability = Math.max(50, Math.min(92, parsed));
+    // Calculate probability based on feedback history (50–92)
+    let probability = 70;
+    if (feedbackHistory && feedbackHistory.length > 0) {
+      const positiveCount = feedbackHistory.filter((f: string) => f === '+').length;
+      const totalCount = feedbackHistory.length;
+
+      const accuracy = positiveCount / totalCount; // 0–1
+      probability = Math.round(50 + accuracy * 42);
+      probability = Math.max(50, Math.min(92, probability));
     }
 
     // Parse reason

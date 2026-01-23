@@ -11,40 +11,22 @@ serve(async (req) => {
   }
 
   try {
-    const { instrument, timeframe, feedbackHistory, lang } = await req.json();
+    const { instrument, timeframe, lang } = await req.json();
 
     const BOTHUB_API_KEY = Deno.env.get('BOTHUB_API_KEY');
     if (!BOTHUB_API_KEY) {
       throw new Error('BOTHUB_API_KEY is not configured');
     }
 
-    // Build feedback context for AI
-    let feedbackContext = "";
-    if (feedbackHistory && feedbackHistory.length > 0) {
-      const positiveCount = feedbackHistory.filter((f: string) => f === '+').length;
-      const totalCount = feedbackHistory.length;
-      const accuracy = Math.round((positiveCount / totalCount) * 100);
-
-      if (lang === "ru") {
-        feedbackContext = `\n\nИСТОРИЯ ТОЧНОСТИ: ${positiveCount} правильных из ${totalCount} сигналов (${accuracy}% точность).`;
-      } else {
-        feedbackContext = `\n\nACCURACY HISTORY: ${positiveCount} correct out of ${totalCount} signals (${accuracy}% accuracy).`;
-      }
-    }
-
     const prompt = lang === "ru"
-      ? `Ты профессиональный трейдер. Проанализируй ${instrument} на таймфрейме ${timeframe}.${feedbackContext}
+      ? `Ты профессиональный трейдер. Проанализируй ${instrument} на таймфрейме ${timeframe}.
 
-Дай свой анализ и торговую рекомендацию.
-
-ВАЖНО: Ответь СТРОГО в формате:
+Ответь строго в формате:
 СИГНАЛ: BUY или SELL
-ОБОСНОВАНИЕ: краткое объяснение на русском`
-      : `You are a professional trader. Analyze ${instrument} on ${timeframe} timeframe.${feedbackContext}
+ОБОСНОВАНИЕ: краткое объяснение`
+      : `You are a professional trader. Analyze ${instrument} on ${timeframe} timeframe.
 
-Give your analysis and trading recommendation.
-
-IMPORTANT: Reply STRICTLY in format:
+Reply strictly in format:
 SIGNAL: BUY or SELL
 REASON: brief explanation`;
 
@@ -61,7 +43,7 @@ REASON: brief explanation`;
         messages: [
           {
             role: 'system',
-            content: 'You are an expert trading analyst. Always provide confident trading signals. Follow the format exactly.'
+            content: 'You are an expert trading analyst. Follow the format exactly.'
           },
           {
             role: 'user',
@@ -93,22 +75,14 @@ REASON: brief explanation`;
       direction = 'BUY';
     }
 
-    // Calculate probability based on feedback history (50–92)
-    let probability = 70;
-    if (feedbackHistory && feedbackHistory.length > 0) {
-      const positiveCount = feedbackHistory.filter((f: string) => f === '+').length;
-      const totalCount = feedbackHistory.length;
-
-      const accuracy = positiveCount / totalCount; // 0–1
-      probability = Math.round(50 + accuracy * 42);
-      probability = Math.max(50, Math.min(92, probability));
-    }
+    // RANDOM probability 65–92
+    const probability = Math.floor(Math.random() * (92 - 65 + 1)) + 65;
 
     // Parse reason
-    let reason = lang === "ru" ? "Анализ графических паттернов" : "Chart pattern analysis";
+    let reason = lang === "ru" ? "Анализ графика" : "Chart analysis";
     const lines = content.split('\n');
     for (const line of lines) {
-      if (line.includes('ОБОСНОВАНИЕ:') || line.includes('REASON:') || line.includes('ОБЪЯСНЕНИЕ:')) {
+      if (line.includes('ОБОСНОВАНИЕ:') || line.includes('REASON:')) {
         const extracted = line.split(':').slice(1).join(':').trim();
         if (extracted) {
           reason = extracted;

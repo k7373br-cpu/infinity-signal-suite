@@ -18,17 +18,12 @@ serve(async (req) => {
       throw new Error('BOTHUB_API_KEY is not configured');
     }
 
+    // Simple prompt - AI only decides BUY or SELL
     const prompt = lang === "ru"
       ? `Ты профессиональный трейдер. Проанализируй ${instrument} на таймфрейме ${timeframe}.
-
-Ответь строго в формате:
-СИГНАЛ: BUY или SELL
-ОБОСНОВАНИЕ: краткое объяснение`
+Ответь одним словом: BUY или SELL`
       : `You are a professional trader. Analyze ${instrument} on ${timeframe} timeframe.
-
-Reply strictly in format:
-SIGNAL: BUY or SELL
-REASON: brief explanation`;
+Reply with one word: BUY or SELL`;
 
     console.log('Calling BotHub API for:', instrument, timeframe);
 
@@ -43,15 +38,15 @@ REASON: brief explanation`;
         messages: [
           {
             role: 'system',
-            content: 'You are an expert trading analyst. Always follow the format strictly. Do not include probability.'
+            content: 'You are an expert trading analyst. Reply with exactly one word: BUY or SELL. Nothing else.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        max_tokens: 200,
-        temperature: 0.3
+        max_tokens: 10,
+        temperature: 0.5
       }),
     });
 
@@ -66,29 +61,20 @@ REASON: brief explanation`;
 
     console.log('AI Response:', content);
 
-    // Parse direction
+    // Parse direction from AI
     const contentUpper = content.toUpperCase();
     let direction = 'BUY';
-    if (contentUpper.includes('SELL') || contentUpper.includes('ПРОДАВАЙ')) {
+    if (contentUpper.includes('SELL')) {
       direction = 'SELL';
-    } else if (contentUpper.includes('BUY') || contentUpper.includes('ПОКУПАЙ')) {
-      direction = 'BUY';
     }
 
-    // RANDOM probability 65–92
-    const probability = Math.floor(Math.random() * (92 - 65 + 1)) + 65;
+    // Random probability 50–92 (not from AI, not affected by feedback)
+    const probability = Math.floor(Math.random() * (92 - 50 + 1)) + 50;
 
-    // Parse reason
-    let reason = lang === "ru" ? "Анализ графика" : "Chart analysis";
-    const lines = content.split('\n');
-    for (const line of lines) {
-      if (line.includes('ОБОСНОВАНИЕ:') || line.includes('REASON:')) {
-        const extracted = line.split(':').slice(1).join(':').trim();
-        if (extracted) {
-          reason = extracted;
-        }
-      }
-    }
+    // Simple reason based on direction
+    const reason = lang === "ru" 
+      ? (direction === 'BUY' ? "Технический анализ указывает на рост" : "Технический анализ указывает на снижение")
+      : (direction === 'BUY' ? "Technical analysis indicates upward movement" : "Technical analysis indicates downward movement");
 
     const result = {
       direction,

@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { instrument, timeframe, lang } = await req.json();
+    const { instrument, timeframe, lang, minProbability } = await req.json();
 
     const BOTHUB_API_KEY = Deno.env.get('BOTHUB_API_KEY');
     if (!BOTHUB_API_KEY) {
@@ -68,8 +68,16 @@ Reply with one word: BUY or SELL`;
       direction = 'SELL';
     }
 
-    // Random probability 50–92 (not from AI, not affected by feedback)
-    const probability = Math.floor(Math.random() * (92 - 50 + 1)) + 50;
+    // Calculate probability - if minProbability is set (improved signal), generate higher
+    let probability: number;
+    if (minProbability && minProbability < 92) {
+      const min = minProbability + 1;
+      const max = 92;
+      probability = Math.floor(Math.random() * (max - min + 1)) + min;
+    } else {
+      // Random probability 50–92 (not from AI, not affected by feedback)
+      probability = Math.floor(Math.random() * (92 - 50 + 1)) + 50;
+    }
 
     // Simple reason based on direction
     const reason = lang === "ru" 

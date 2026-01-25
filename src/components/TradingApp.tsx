@@ -79,13 +79,24 @@ export function TradingApp() {
     }
   };
 
-  const handleFeedback = (feedback: '+' | '-') => {
+  const handleFeedback = async (feedback: '+' | '-') => {
     addFeedback(feedback);
     toast.success(
       feedback === '+' 
         ? (language === 'ru' ? 'Сигнал отмечен как правильный ✅' : 'Signal marked as correct ✅')
         : (language === 'ru' ? 'Сигнал отмечен как неправильный ❌' : 'Signal marked as incorrect ❌')
     );
+    
+    // Generate new signal after feedback
+    if (tempPair && tempTimeframe && canGenerateSignal()) {
+      setView('loading');
+      const signal = await generateNewSignal(tempPair, tempTimeframe);
+      if (signal) {
+        setView('signal');
+      } else {
+        setView('home');
+      }
+    }
   };
 
   const handleRepeatSignal = async () => {
@@ -175,7 +186,11 @@ export function TradingApp() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="glass-card p-4 space-y-2">
                   <p className="text-xs text-muted-foreground uppercase">{t.status}</p>
-                  <StatusBadge status={userStatus} language={language} />
+                  <StatusBadge 
+                    status={userStatus} 
+                    language={language} 
+                    onClick={() => setShowVerification(true)}
+                  />
                 </div>
                 <div className="glass-card p-4 space-y-2">
                   <p className="text-xs text-muted-foreground uppercase">{t.signalsLeft}</p>
@@ -199,18 +214,6 @@ export function TradingApp() {
                   {t.getSignal}
                 </Button>
 
-                <div className="grid grid-cols-2 gap-3">
-                  {userStatus === 'free' && (
-                    <Button
-                      onClick={() => setShowVerification(true)}
-                      variant="outline"
-                      className="h-12 border-border hover:bg-secondary hover:border-primary/30"
-                    >
-                      <Key className="w-4 h-4 mr-1.5" />
-                      <span className="text-sm">{t.verification}</span>
-                    </Button>
-                  )}
-                </div>
               </div>
 
               {/* Signal History */}

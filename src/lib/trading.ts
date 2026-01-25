@@ -17,6 +17,9 @@ export interface UserStats {
   lastSignal: Signal | null;
 }
 
+// Store last direction for alternation
+let lastGeneratedDirection: SignalDirection | null = null;
+
 export function isMarketOpen(): boolean {
   // Market is always open for now
   return true;
@@ -79,7 +82,8 @@ export async function generateSignalFromAI(
         timeframe,
         feedbackHistory,
         lang,
-        minProbability
+        minProbability,
+        lastDirection: lastGeneratedDirection
       }),
     });
 
@@ -88,6 +92,9 @@ export async function generateSignalFromAI(
     }
 
     const data = await response.json();
+    
+    // Store last direction for alternation
+    lastGeneratedDirection = data.direction as SignalDirection;
     
     return {
       id: data.id || Math.random().toString(36).substring(2, 11),
@@ -101,26 +108,18 @@ export async function generateSignalFromAI(
   } catch (error) {
     console.error('AI Signal generation error:', error);
     // Fallback to random signal if AI fails
-    return generateFallbackSignal(cleanInstrument, timeframe, feedbackHistory, minProbability);
+    return generateFallbackSignal(cleanInstrument, timeframe, minProbability);
   }
 }
 
 function generateFallbackSignal(
   instrument: string, 
   timeframe: string,
-  feedbackHistory: ('+' | '-')[],
   minProbability?: number
 ): Signal {
-  const positiveCount = feedbackHistory.filter(f => f === '+').length;
-  const negativeCount = feedbackHistory.filter(f => f === '-').length;
-  
-  let buyProbability = 0.5;
-  if (feedbackHistory.length > 0) {
-    buyProbability = 0.5 + (positiveCount - negativeCount) * 0.05;
-    buyProbability = Math.max(0.3, Math.min(0.7, buyProbability));
-  }
-  
-  const direction: SignalDirection = Math.random() < buyProbability ? 'BUY' : 'SELL';
+  // Alternate direction
+  const direction: SignalDirection = lastGeneratedDirection === 'BUY' ? 'SELL' : 'BUY';
+  lastGeneratedDirection = direction;
   
   // Calculate probability - if minProbability is set, generate higher
   let probability: number;

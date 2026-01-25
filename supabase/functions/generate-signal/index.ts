@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { instrument, timeframe, lang, minProbability } = await req.json();
+    const { instrument, timeframe, lang, minProbability, lastDirection } = await req.json();
 
     const BOTHUB_API_KEY = Deno.env.get('BOTHUB_API_KEY');
     if (!BOTHUB_API_KEY) {
@@ -66,6 +66,11 @@ Reply with one word: BUY or SELL`;
     let direction = 'BUY';
     if (contentUpper.includes('SELL')) {
       direction = 'SELL';
+    }
+    
+    // Force alternation: if lastDirection is provided, switch to opposite
+    if (lastDirection) {
+      direction = lastDirection === 'BUY' ? 'SELL' : 'BUY';
     }
 
     // Calculate probability - if minProbability is set (improved signal), generate higher

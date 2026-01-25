@@ -33,6 +33,10 @@ const getInitialState = (): TradingState => {
           parsed.stats.signalsUsed = 0;
           parsed.lastUsageDate = today;
         }
+        // Ensure signalHistory exists for old saved states
+        if (!parsed.signalHistory) {
+          parsed.signalHistory = [];
+        }
         return parsed;
       } catch {
         // Invalid saved state

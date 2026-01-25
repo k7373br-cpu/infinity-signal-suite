@@ -8,10 +8,10 @@ interface SignalHistoryProps {
   language: Language;
 }
 
-export function SignalHistory({ history, language }: SignalHistoryProps) {
+export function SignalHistory({ history = [], language }: SignalHistoryProps) {
   const t = TRANSLATIONS[language];
   
-  if (history.length === 0) {
+  if (!history || history.length === 0) {
     return (
       <div className="glass-card p-4 space-y-3">
         <div className="flex items-center gap-2">

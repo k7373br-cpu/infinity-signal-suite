@@ -18,10 +18,8 @@ export interface UserStats {
 }
 
 export function isMarketOpen(): boolean {
-  const now = new Date();
-  const day = now.getUTCDay();
-  // Saturday (6) and Sunday (0) - market closed
-  return day !== 0 && day !== 6;
+  // Market is always open for now
+  return true;
 }
 
 export function getMarketStatus(lang: 'ru' | 'en'): { isOpen: boolean; message: string } {

@@ -4,6 +4,13 @@ import { Signal, UserStats, generateSignalFromAI, isMarketOpen } from '@/lib/tra
 
 const STORAGE_KEY = 'infinity_traffic_state';
 
+export interface SignalHistoryItem {
+  id: string;
+  pair: string;
+  time: string;
+  direction: 'BUY' | 'SELL';
+}
+
 interface TradingState {
   language: Language;
   userStatus: UserStatus;
@@ -11,6 +18,7 @@ interface TradingState {
   currentSignal: Signal | null;
   selectedPair: string | null;
   selectedTimeframe: string | null;
+  signalHistory: SignalHistoryItem[];
 }
 
 const getInitialState = (): TradingState => {
@@ -43,7 +51,8 @@ const getInitialState = (): TradingState => {
     },
     currentSignal: null,
     selectedPair: null,
-    selectedTimeframe: null
+    selectedTimeframe: null,
+    signalHistory: []
   };
 };
 
@@ -92,6 +101,13 @@ export function useTrading() {
     try {
       const signal = await generateSignalFromAI(pair, timeframe, state.stats.feedbackHistory, state.language, minProbability);
       
+      const historyItem: SignalHistoryItem = {
+        id: signal.id,
+        pair: pair.replace(/[\u{1F1E6}-\u{1F1FF}]+\s*/gu, '').trim(),
+        time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        direction: signal.direction
+      };
+      
       setState(prev => ({
         ...prev,
         currentSignal: signal,
@@ -101,7 +117,8 @@ export function useTrading() {
           ...prev.stats,
           signalsUsed: prev.stats.signalsUsed + 1,
           lastSignal: signal
-        }
+        },
+        signalHistory: [historyItem, ...prev.signalHistory].slice(0, 10)
       }));
       
       setIsGenerating(false);
@@ -155,6 +172,7 @@ export function useTrading() {
     currentSignal: state.currentSignal,
     selectedPair: state.selectedPair,
     selectedTimeframe: state.selectedTimeframe,
+    signalHistory: state.signalHistory,
     isGenerating,
     setLanguage,
     getRemainingSignals,

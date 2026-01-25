@@ -118,7 +118,9 @@ export function TradingApp() {
     }
     
     setView('loading');
-    const signal = await generateNewSignal(tempPair, tempTimeframe);
+    // Pass current signal's probability as minimum for improved signal
+    const minProbability = currentSignal?.probability;
+    const signal = await generateNewSignal(tempPair, tempTimeframe, minProbability);
     if (signal) {
       setView('signal');
     } else {

@@ -84,13 +84,13 @@ export function useTrading() {
     return state.stats.signalsUsed < limit;
   }, [state.userStatus, state.stats.signalsUsed, getSignalsLimit]);
 
-  const generateNewSignal = useCallback(async (pair: string, timeframe: string): Promise<Signal | null> => {
+  const generateNewSignal = useCallback(async (pair: string, timeframe: string, minProbability?: number): Promise<Signal | null> => {
     if (!canGenerateSignal()) return null;
     
     setIsGenerating(true);
     
     try {
-      const signal = await generateSignalFromAI(pair, timeframe, state.stats.feedbackHistory, state.language);
+      const signal = await generateSignalFromAI(pair, timeframe, state.stats.feedbackHistory, state.language, minProbability);
       
       setState(prev => ({
         ...prev,

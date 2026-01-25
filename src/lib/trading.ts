@@ -63,7 +63,8 @@ export async function generateSignalFromAI(
   instrument: string, 
   timeframe: string,
   feedbackHistory: ('+' | '-')[],
-  lang: 'ru' | 'en' = 'en'
+  lang: 'ru' | 'en' = 'en',
+  minProbability?: number
 ): Promise<Signal> {
   // Clean instrument name from flags
   const cleanInstrument = instrument.replace(/[\u{1F1E6}-\u{1F1FF}]+\s*/gu, '').trim();
@@ -79,7 +80,8 @@ export async function generateSignalFromAI(
         instrument: cleanInstrument,
         timeframe,
         feedbackHistory,
-        lang
+        lang,
+        minProbability
       }),
     });
 
@@ -101,14 +103,15 @@ export async function generateSignalFromAI(
   } catch (error) {
     console.error('AI Signal generation error:', error);
     // Fallback to random signal if AI fails
-    return generateFallbackSignal(cleanInstrument, timeframe, feedbackHistory);
+    return generateFallbackSignal(cleanInstrument, timeframe, feedbackHistory, minProbability);
   }
 }
 
 function generateFallbackSignal(
   instrument: string, 
   timeframe: string,
-  feedbackHistory: ('+' | '-')[]
+  feedbackHistory: ('+' | '-')[],
+  minProbability?: number
 ): Signal {
   const positiveCount = feedbackHistory.filter(f => f === '+').length;
   const negativeCount = feedbackHistory.filter(f => f === '-').length;
@@ -120,7 +123,16 @@ function generateFallbackSignal(
   }
   
   const direction: SignalDirection = Math.random() < buyProbability ? 'BUY' : 'SELL';
-  const probability = Math.floor(Math.random() * 20) + 75;
+  
+  // Calculate probability - if minProbability is set, generate higher
+  let probability: number;
+  if (minProbability && minProbability < 92) {
+    const min = minProbability + 1;
+    const max = 92;
+    probability = Math.floor(Math.random() * (max - min + 1)) + min;
+  } else {
+    probability = Math.floor(Math.random() * 20) + 75;
+  }
   
   const reasons = [
     "Chart pattern analysis",

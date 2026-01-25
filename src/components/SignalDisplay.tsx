@@ -108,19 +108,7 @@ export function SignalDisplay({
           </div>
           
           {/* Stats row */}
-          <div className="flex items-center justify-between pt-2 border-t border-border/50">
-            <div className="flex items-center gap-2 text-sm">
-              <BarChart3 className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">{t.history}:</span>
-              {feedbackHistory.length > 0 ? (
-                <span>
-                  {positiveCount} ✅ / {negativeCount} ❌ 
-                  <span className="text-muted-foreground ml-1">({accuracy.toFixed(0)}%)</span>
-                </span>
-              ) : (
-                <span className="text-muted-foreground">{t.noRatings}</span>
-              )}
-            </div>
+          <div className="flex items-center justify-end pt-2 border-t border-border/50">
             <div className="text-sm">
               <span className="text-muted-foreground">{t.signalsLeft}:</span>
               <span className="ml-1 font-mono font-bold text-primary">{remainingSignals}</span>

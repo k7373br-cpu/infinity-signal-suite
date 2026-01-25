@@ -6,9 +6,10 @@ interface StatusBadgeProps {
   status: UserStatus;
   language: Language;
   className?: string;
+  onClick?: () => void;
 }
 
-export function StatusBadge({ status, language, className }: StatusBadgeProps) {
+export function StatusBadge({ status, language, className, onClick }: StatusBadgeProps) {
   const t = TRANSLATIONS[language];
   
   const config = {
@@ -32,13 +33,17 @@ export function StatusBadge({ status, language, className }: StatusBadgeProps) {
   const { label, icon: Icon, className: statusClass } = config[status];
   
   return (
-    <div className={cn(
-      "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium",
-      statusClass,
-      className
-    )}>
+    <button
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium transition-all",
+        "hover:scale-105 hover:brightness-110 cursor-pointer",
+        statusClass,
+        className
+      )}
+    >
       <Icon className="w-4 h-4" />
       <span>{label}</span>
-    </div>
+    </button>
   );
 }

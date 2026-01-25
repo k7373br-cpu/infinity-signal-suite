@@ -10,15 +10,14 @@ import { TimeframeSelector } from './TimeframeSelector';
 import { SignalDisplay } from './SignalDisplay';
 import { LoadingSignal } from './LoadingSignal';
 import { VerificationModal } from './VerificationModal';
+import { SignalHistory } from './SignalHistory';
 import { Button } from '@/components/ui/button';
 import { 
-  TrendingUp, 
   Key, 
-  MessageCircle, 
-  RefreshCw, 
   Zap,
   BarChart3,
-  Send
+  Send,
+  MessageCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -32,6 +31,7 @@ export function TradingApp() {
     currentSignal,
     selectedPair,
     selectedTimeframe,
+    signalHistory,
     isGenerating,
     setLanguage,
     getRemainingSignals,
@@ -199,7 +199,7 @@ export function TradingApp() {
                   {t.getSignal}
                 </Button>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {userStatus === 'free' && (
                     <Button
                       onClick={() => setShowVerification(true)}
@@ -210,28 +210,11 @@ export function TradingApp() {
                       <span className="text-sm">{t.verification}</span>
                     </Button>
                   )}
-                  
-                  <Button
-                    onClick={handleRepeatSignal}
-                    variant="outline"
-                    className="h-12 border-border hover:bg-secondary hover:border-primary/30"
-                    disabled={!selectedPair || !selectedTimeframe || !canGenerateSignal()}
-                  >
-                    <RefreshCw className="w-4 h-4 mr-1.5" />
-                    <span className="text-sm">{t.repeatSignal}</span>
-                  </Button>
-                  
-                  <a
-                    href="https://t.me/INFINITY_TRAFFlC"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="h-12 inline-flex items-center justify-center rounded-md border border-border bg-background hover:bg-secondary hover:border-primary/30 transition-colors text-sm font-medium"
-                  >
-                    <MessageCircle className="w-4 h-4 mr-1.5" />
-                    {t.support}
-                  </a>
                 </div>
               </div>
+
+              {/* Signal History */}
+              <SignalHistory history={signalHistory} language={language} />
 
               {/* Telegram links */}
               <div className="glass-card p-4 space-y-3">

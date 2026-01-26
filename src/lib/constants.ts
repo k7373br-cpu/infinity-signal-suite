@@ -1,18 +1,19 @@
 export const CURRENCY_PAIRS = [
-  "🇦🇺 AUD/CHF 🇨🇭", "🇨🇦 CAD/CHF 🇨🇭", "🇪🇺 EUR/USD 🇺🇸", "🇪🇺 EUR/AUD 🇦🇺",
-  "🇪🇺 EUR/GBP 🇬🇧", "🇪🇺 EUR/CAD 🇨🇦", "🇪🇺 EUR/JPY 🇯🇵", "🇺🇸 USD/JPY 🇯🇵",
-  "🇬🇧 GBP/USD 🇺🇸", "🇬🇧 GBP/AUD 🇦🇺", "🇬🇧 GBP/JPY 🇯🇵", "🇦🇺 AUD/JPY 🇯🇵",
-  "🇦🇺 AUD/CAD 🇨🇦", "🇨🇦 CAD/JPY 🇯🇵", "🇦🇺 AUD/USD 🇺🇸", "🇺🇸 USD/CHF 🇨🇭",
-  "🇺🇸 USD/CAD 🇨🇦", "🇳🇿 NZD/USD 🇺🇸", "🇪🇺 EUR/CHF 🇨🇭", "🇬🇧 GBP/CHF 🇨🇭",
-  "🇨🇭 CHF/JPY 🇯🇵", "🇬🇧 GBP/CAD 🇨🇦", "🇦🇺 AUD/NZD 🇳🇿", "🇪🇺 EUR/NZD 🇳🇿",
-  "🇬🇧 GBP/NZD 🇳🇿", "🇳🇿 NZD/JPY 🇯🇵", "🇺🇸 USD/SEK 🇸🇪", "🇺🇸 USD/NOK 🇳🇴",
-  "🇺🇸 USD/DKK 🇩🇰", "🇺🇸 USD/CNH 🇨🇳", "🇺🇸 USD/HKD 🇭🇰", "🇺🇸 USD/SGD 🇸🇬",
-  "🇺🇸 USD/ZAR 🇿🇦", "🇺🇸 USD/MXN 🇲🇽", "🇺🇸 USD/TRY 🇹🇷", "🇺🇸 USD/PLN 🇵🇱"
+  "AUD/CAD", "AUD/CHF", "AUD/JPY", "AUD/NZD", "AUD/USD",
+  "CAD/CHF", "CAD/JPY", "CHF/JPY",
+  "EUR/AUD", "EUR/CAD", "EUR/CHF", "EUR/GBP", "EUR/JPY", "EUR/NZD", "EUR/SEK", "EUR/USD",
+  "GBP/CAD", "GBP/CHF", "GBP/JPY", "GBP/USD",
+  "NZD/CAD", "NZD/JPY",
+  "USD/CAD", "USD/CHF", "USD/CNH", "USD/JPY", "USD/MXN", "USD/NOK", "USD/SGD"
 ];
 
 export const CRYPTO_PAIRS = [
-  "₿ Bitcoin", "Ξ Ethereum", "✕ Ripple", "Ł Litecoin", "Ƀ Bitcoin Cash",
-  "₳ Cardano", "● Polkadot", "🔗 Chainlink", "★ Stellar", "🐕 Dogecoin"
+  "BNB/USDT", "BTC/USDT", "ETH/USDT", "LTC/USDT", "MNT/USDT",
+  "SOL/USDT", "XAUT/USDT", "XRP/USDT", "ZEC/USDT"
+];
+
+export const METAL_PAIRS = [
+  "GOLD", "SILVER", "PLATINUM", "PALLADIUM"
 ];
 
 export const TIMEFRAMES = {
@@ -119,3 +120,4 @@ export const TRANSLATIONS = {
 export type Language = 'ru' | 'en';
 export type UserStatus = 'free' | 'verified' | 'vip';
 export type SignalDirection = 'BUY' | 'SELL';
+export type AssetType = 'forex' | 'crypto' | 'metals';

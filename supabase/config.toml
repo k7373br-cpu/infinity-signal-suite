@@ -1,1 +1,4 @@
 project_id = "nfdvwbdwdcfoxpsxhjdr"
+
+[functions.finnhub-quotes]
+verify_jwt = false

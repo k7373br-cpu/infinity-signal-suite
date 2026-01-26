@@ -251,6 +251,7 @@ export function TradingApp() {
               language={language}
               onSelect={handlePairSelect}
               showCrypto={userStatus === 'vip'}
+              showMetals={userStatus === 'vip'}
             />
           )}
 

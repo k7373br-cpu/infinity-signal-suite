@@ -5,13 +5,41 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Global cache for synchronized signals - all users see the same signal
+const signalCache = new Map<string, { signal: any; expiresAt: number }>();
+const SIGNAL_TTL = 30000; // 30 seconds - all users get same signal within this window
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { instrument, timeframe, lang, minProbability, lastDirection } = await req.json();
+    const { instrument, timeframe, lang } = await req.json();
+    
+    // Create cache key based on instrument and timeframe
+    const cacheKey = `${instrument}_${timeframe}`;
+    const now = Date.now();
+    
+    // Check if we have a valid cached signal for ALL users
+    const cached = signalCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      console.log('Returning cached signal for all users:', cached.signal);
+      // Return same signal with updated translations if needed
+      const cachedSignal = { ...cached.signal };
+      if (lang === 'ru') {
+        cachedSignal.reason = cachedSignal.direction === 'BUY' 
+          ? "Технический анализ указывает на рост" 
+          : "Технический анализ указывает на снижение";
+      } else {
+        cachedSignal.reason = cachedSignal.direction === 'BUY'
+          ? "Technical analysis indicates upward movement"
+          : "Technical analysis indicates downward movement";
+      }
+      return new Response(JSON.stringify(cachedSignal), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const BOTHUB_API_KEY = Deno.env.get('BOTHUB_API_KEY');
     if (!BOTHUB_API_KEY) {
@@ -19,10 +47,7 @@ serve(async (req) => {
     }
 
     // Simple prompt - AI only decides BUY or SELL
-    const prompt = lang === "ru"
-      ? `Ты профессиональный трейдер. Проанализируй ${instrument} на таймфрейме ${timeframe}.
-Ответь одним словом: BUY или SELL`
-      : `You are a professional trader. Analyze ${instrument} on ${timeframe} timeframe.
+    const prompt = `You are a professional trader. Analyze ${instrument} on ${timeframe} timeframe.
 Reply with one word: BUY or SELL`;
 
     console.log('Calling BotHub API for:', instrument, timeframe);
@@ -61,7 +86,7 @@ Reply with one word: BUY or SELL`;
 
     console.log('AI Response:', content);
 
-    // Parse direction from AI and INVERT it (show opposite of what AI says)
+    // Parse direction from AI and INVERT it (if AI says BUY, we show SELL)
     const contentUpper = content.toUpperCase();
     let aiDirection = 'BUY';
     if (contentUpper.includes('SELL')) {
@@ -69,51 +94,29 @@ Reply with one word: BUY or SELL`;
     }
     
     // INVERT the AI direction - if AI says BUY, we show SELL and vice versa
-    let direction = aiDirection === 'BUY' ? 'SELL' : 'BUY';
-    
-    // If lastDirection is provided, make sure we don't repeat it
-    if (lastDirection && direction === lastDirection) {
-      direction = lastDirection === 'BUY' ? 'SELL' : 'BUY';
-    }
+    const direction = aiDirection === 'BUY' ? 'SELL' : 'BUY';
 
-    // Calculate probability - make it varied and different each time
-    let probability: number;
-    const lastProbability = minProbability || 0;
+    // Calculate probability with weighted distribution for variety
+    const ranges = [
+      { min: 58, max: 67, weight: 25 },
+      { min: 68, max: 77, weight: 35 },
+      { min: 78, max: 86, weight: 30 },
+      { min: 87, max: 94, weight: 10 }
+    ];
     
-    if (minProbability && minProbability < 92) {
-      // For improved signal: generate between current+3 and 95, but ensure variety
-      const min = Math.min(minProbability + 3, 90);
-      const max = 95;
-      probability = Math.floor(Math.random() * (max - min + 1)) + min;
-    } else {
-      // Generate random probability 55-92, weighted towards middle values
-      const ranges = [
-        { min: 55, max: 65, weight: 25 },
-        { min: 66, max: 75, weight: 35 },
-        { min: 76, max: 85, weight: 30 },
-        { min: 86, max: 92, weight: 10 }
-      ];
-      
-      const roll = Math.random() * 100;
-      let cumulative = 0;
-      let selectedRange = ranges[1]; // default
-      
-      for (const range of ranges) {
-        cumulative += range.weight;
-        if (roll < cumulative) {
-          selectedRange = range;
-          break;
-        }
+    const roll = Math.random() * 100;
+    let cumulative = 0;
+    let selectedRange = ranges[1];
+    
+    for (const range of ranges) {
+      cumulative += range.weight;
+      if (roll < cumulative) {
+        selectedRange = range;
+        break;
       }
-      
-      probability = Math.floor(Math.random() * (selectedRange.max - selectedRange.min + 1)) + selectedRange.min;
     }
     
-    // Ensure probability is different from last one (at least ±3 difference)
-    if (Math.abs(probability - lastProbability) < 3 && lastProbability > 0) {
-      probability = lastProbability < 75 ? lastProbability + 5 + Math.floor(Math.random() * 8) : lastProbability - 5 - Math.floor(Math.random() * 8);
-      probability = Math.max(55, Math.min(95, probability));
-    }
+    const probability = Math.floor(Math.random() * (selectedRange.max - selectedRange.min + 1)) + selectedRange.min;
 
     // Simple reason based on direction
     const reason = lang === "ru" 
@@ -130,7 +133,13 @@ Reply with one word: BUY or SELL`;
       timestamp: new Date().toISOString()
     };
 
-    console.log('Generated signal:', result);
+    // Cache the signal so ALL users get the same one
+    signalCache.set(cacheKey, {
+      signal: result,
+      expiresAt: now + SIGNAL_TTL
+    });
+
+    console.log('Generated NEW signal for all users:', result);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

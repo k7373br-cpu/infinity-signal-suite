@@ -9,6 +9,9 @@ const corsHeaders = {
 const signalCache = new Map<string, { signal: any; expiresAt: number }>();
 const SIGNAL_TTL = 30000; // 30 seconds - all users get same signal within this window
 
+// Track last direction per instrument to force alternation
+const lastDirectionCache = new Map<string, string>();
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -86,15 +89,30 @@ Reply with one word: BUY or SELL`;
 
     console.log('AI Response:', content);
 
-    // Parse direction from AI and INVERT it (if AI says BUY, we show SELL)
+    // Get last direction for this instrument to force alternation
+    const lastDirection = lastDirectionCache.get(instrument) || 'BUY';
+    
+    // Parse direction from AI response
     const contentUpper = content.toUpperCase();
     let aiDirection = 'BUY';
-    if (contentUpper.includes('SELL')) {
+    if (contentUpper.includes('SELL') || contentUpper.includes('DOWN') || contentUpper.includes('SHORT')) {
       aiDirection = 'SELL';
+    } else if (contentUpper.includes('BUY') || contentUpper.includes('UP') || contentUpper.includes('LONG')) {
+      aiDirection = 'BUY';
     }
     
     // INVERT the AI direction - if AI says BUY, we show SELL and vice versa
-    const direction = aiDirection === 'BUY' ? 'SELL' : 'BUY';
+    let direction = aiDirection === 'BUY' ? 'SELL' : 'BUY';
+    
+    // Force alternation - if same as last, flip it
+    if (direction === lastDirection) {
+      direction = direction === 'BUY' ? 'SELL' : 'BUY';
+    }
+    
+    // Save this direction for next time
+    lastDirectionCache.set(instrument, direction);
+    
+    console.log('AI said:', aiDirection, '-> Inverted to:', direction, '(last was:', lastDirection, ')');
 
     // Calculate probability with weighted distribution for variety
     const ranges = [

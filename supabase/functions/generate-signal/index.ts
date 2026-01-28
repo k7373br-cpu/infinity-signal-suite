@@ -61,27 +61,58 @@ Reply with one word: BUY or SELL`;
 
     console.log('AI Response:', content);
 
-    // Parse direction from AI
+    // Parse direction from AI and INVERT it (show opposite of what AI says)
     const contentUpper = content.toUpperCase();
-    let direction = 'BUY';
+    let aiDirection = 'BUY';
     if (contentUpper.includes('SELL')) {
-      direction = 'SELL';
+      aiDirection = 'SELL';
     }
     
-    // Force alternation: if lastDirection is provided, switch to opposite
-    if (lastDirection) {
+    // INVERT the AI direction - if AI says BUY, we show SELL and vice versa
+    let direction = aiDirection === 'BUY' ? 'SELL' : 'BUY';
+    
+    // If lastDirection is provided, make sure we don't repeat it
+    if (lastDirection && direction === lastDirection) {
       direction = lastDirection === 'BUY' ? 'SELL' : 'BUY';
     }
 
-    // Calculate probability - if minProbability is set (improved signal), generate higher
+    // Calculate probability - make it varied and different each time
     let probability: number;
+    const lastProbability = minProbability || 0;
+    
     if (minProbability && minProbability < 92) {
-      const min = minProbability + 1;
-      const max = 92;
+      // For improved signal: generate between current+3 and 95, but ensure variety
+      const min = Math.min(minProbability + 3, 90);
+      const max = 95;
       probability = Math.floor(Math.random() * (max - min + 1)) + min;
     } else {
-      // Random probability 50–92 (not from AI, not affected by feedback)
-      probability = Math.floor(Math.random() * (92 - 50 + 1)) + 50;
+      // Generate random probability 55-92, weighted towards middle values
+      const ranges = [
+        { min: 55, max: 65, weight: 25 },
+        { min: 66, max: 75, weight: 35 },
+        { min: 76, max: 85, weight: 30 },
+        { min: 86, max: 92, weight: 10 }
+      ];
+      
+      const roll = Math.random() * 100;
+      let cumulative = 0;
+      let selectedRange = ranges[1]; // default
+      
+      for (const range of ranges) {
+        cumulative += range.weight;
+        if (roll < cumulative) {
+          selectedRange = range;
+          break;
+        }
+      }
+      
+      probability = Math.floor(Math.random() * (selectedRange.max - selectedRange.min + 1)) + selectedRange.min;
+    }
+    
+    // Ensure probability is different from last one (at least ±3 difference)
+    if (Math.abs(probability - lastProbability) < 3 && lastProbability > 0) {
+      probability = lastProbability < 75 ? lastProbability + 5 + Math.floor(Math.random() * 8) : lastProbability - 5 - Math.floor(Math.random() * 8);
+      probability = Math.max(55, Math.min(95, probability));
     }
 
     // Simple reason based on direction

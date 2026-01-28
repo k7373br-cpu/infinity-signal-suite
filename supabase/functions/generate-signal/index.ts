@@ -9,8 +9,34 @@ const corsHeaders = {
 const signalCache = new Map<string, { signal: any; expiresAt: number }>();
 const SIGNAL_TTL = 30000; // 30 seconds - all users get same signal within this window
 
-// Track last direction per instrument to force alternation
-const lastDirectionCache = new Map<string, string>();
+function parseAiDirection(content: string): 'BUY' | 'SELL' | null {
+  const upper = (content || '').toUpperCase();
+  if (upper.includes('SELL') || upper.includes('DOWN') || upper.includes('SHORT')) return 'SELL';
+  if (upper.includes('BUY') || upper.includes('UP') || upper.includes('LONG')) return 'BUY';
+  return null;
+}
+
+function hashString(input: string): number {
+  // Simple deterministic hash (djb2)
+  let h = 5381;
+  for (let i = 0; i < input.length; i++) {
+    h = ((h << 5) + h) + input.charCodeAt(i);
+    h |= 0; // 32-bit
+  }
+  return Math.abs(h);
+}
+
+function pickFallbackAiDirection(cacheKey: string, nowMs: number): 'BUY' | 'SELL' {
+  // Deterministic direction that flips every SIGNAL_TTL window.
+  // This guarantees we don't get stuck on one side even if the AI response is empty.
+  const bucket = Math.floor(nowMs / SIGNAL_TTL);
+  const v = (hashString(cacheKey) + bucket) % 2;
+  return v === 0 ? 'BUY' : 'SELL';
+}
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,7 +44,7 @@ serve(async (req) => {
   }
 
   try {
-    const { instrument, timeframe, lang } = await req.json();
+    const { instrument, timeframe, lang, minProbability } = await req.json();
     
     // Create cache key based on instrument and timeframe
     const cacheKey = `${instrument}_${timeframe}`;
@@ -89,30 +115,17 @@ Reply with one word: BUY or SELL`;
 
     console.log('AI Response:', content);
 
-    // Get last direction for this instrument to force alternation
-    const lastDirection = lastDirectionCache.get(instrument) || 'BUY';
-    
-    // Parse direction from AI response
-    const contentUpper = content.toUpperCase();
-    let aiDirection = 'BUY';
-    if (contentUpper.includes('SELL') || contentUpper.includes('DOWN') || contentUpper.includes('SHORT')) {
-      aiDirection = 'SELL';
-    } else if (contentUpper.includes('BUY') || contentUpper.includes('UP') || contentUpper.includes('LONG')) {
-      aiDirection = 'BUY';
+    // Parse direction from AI response; if AI returns empty/garbage, use deterministic fallback
+    const parsed = parseAiDirection(content);
+    const aiDirection = parsed ?? pickFallbackAiDirection(cacheKey, now);
+    if (!parsed) {
+      console.log('AI direction not detected, using fallback aiDirection:', aiDirection);
     }
-    
+
     // INVERT the AI direction - if AI says BUY, we show SELL and vice versa
-    let direction = aiDirection === 'BUY' ? 'SELL' : 'BUY';
-    
-    // Force alternation - if same as last, flip it
-    if (direction === lastDirection) {
-      direction = direction === 'BUY' ? 'SELL' : 'BUY';
-    }
-    
-    // Save this direction for next time
-    lastDirectionCache.set(instrument, direction);
-    
-    console.log('AI said:', aiDirection, '-> Inverted to:', direction, '(last was:', lastDirection, ')');
+    const direction = aiDirection === 'BUY' ? 'SELL' : 'BUY';
+
+    console.log('AI said:', aiDirection, '-> Inverted to:', direction);
 
     // Calculate probability with weighted distribution for variety
     const ranges = [
@@ -134,7 +147,15 @@ Reply with one word: BUY or SELL`;
       }
     }
     
-    const probability = Math.floor(Math.random() * (selectedRange.max - selectedRange.min + 1)) + selectedRange.min;
+    let probability = randomInt(selectedRange.min, selectedRange.max);
+
+    // If user requested an "improved" signal, ensure probability increases logically
+    if (typeof minProbability === 'number' && Number.isFinite(minProbability)) {
+      const prev = Math.floor(minProbability);
+      const min = Math.min(94, Math.max(58, prev + 1));
+      const max = 95;
+      probability = min >= max ? max : randomInt(min, max);
+    }
 
     // Simple reason based on direction
     const reason = lang === "ru" 

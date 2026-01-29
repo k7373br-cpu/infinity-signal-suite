@@ -5,34 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Global cache for synchronized signals - all users see the same signal
+// Cache for synchronized signals - all users see the same signal
 const signalCache = new Map<string, { signal: any; expiresAt: number }>();
-const SIGNAL_TTL = 30000; // 30 seconds - all users get same signal within this window
+const SIGNAL_TTL = 30000; // 30 seconds
 
-function parseAiDirection(content: string): 'BUY' | 'SELL' | null {
-  const upper = (content || '').toUpperCase();
-  if (upper.includes('SELL') || upper.includes('DOWN') || upper.includes('SHORT')) return 'SELL';
-  if (upper.includes('BUY') || upper.includes('UP') || upper.includes('LONG')) return 'BUY';
-  return null;
-}
-
-function hashString(input: string): number {
-  // Simple deterministic hash (djb2)
-  let h = 5381;
-  for (let i = 0; i < input.length; i++) {
-    h = ((h << 5) + h) + input.charCodeAt(i);
-    h |= 0; // 32-bit
-  }
-  return Math.abs(h);
-}
-
-function pickFallbackAiDirection(cacheKey: string, nowMs: number): 'BUY' | 'SELL' {
-  // Deterministic direction that flips every SIGNAL_TTL window.
-  // This guarantees we don't get stuck on one side even if the AI response is empty.
-  const bucket = Math.floor(nowMs / SIGNAL_TTL);
-  const v = (hashString(cacheKey) + bucket) % 2;
-  return v === 0 ? 'BUY' : 'SELL';
-}
+// Track last direction per instrument for alternation
+const lastDirectionCache = new Map<string, 'BUY' | 'SELL'>();
 
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -46,16 +24,15 @@ serve(async (req) => {
   try {
     const { instrument, timeframe, lang, minProbability } = await req.json();
     
-    // Create cache key based on instrument and timeframe
     const cacheKey = `${instrument}_${timeframe}`;
     const now = Date.now();
     
-    // Check if we have a valid cached signal for ALL users
+    // Return cached signal if valid
     const cached = signalCache.get(cacheKey);
     if (cached && cached.expiresAt > now) {
-      console.log('Returning cached signal for all users:', cached.signal);
-      // Return same signal with updated translations if needed
+      console.log('Returning cached signal:', cached.signal);
       const cachedSignal = { ...cached.signal };
+      // Update reason for language
       if (lang === 'ru') {
         cachedSignal.reason = cachedSignal.direction === 'BUY' 
           ? "Технический анализ указывает на рост" 
@@ -70,94 +47,27 @@ serve(async (req) => {
       });
     }
 
-    const BOTHUB_API_KEY = Deno.env.get('BOTHUB_API_KEY');
-    if (!BOTHUB_API_KEY) {
-      throw new Error('BOTHUB_API_KEY is not configured');
-    }
+    // Simple alternation logic - flip from last direction
+    const lastDirection = lastDirectionCache.get(instrument) || 'SELL';
+    const direction: 'BUY' | 'SELL' = lastDirection === 'BUY' ? 'SELL' : 'BUY';
+    lastDirectionCache.set(instrument, direction);
 
-    // Simple prompt - AI only decides BUY or SELL
-    const prompt = `You are a professional trader. Analyze ${instrument} on ${timeframe} timeframe.
-Reply with one word: BUY or SELL`;
+    console.log('Direction alternation:', lastDirection, '->', direction);
 
-    console.log('Calling BotHub API for:', instrument, timeframe);
-
-    const response = await fetch('https://bothub.chat/api/v2/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${BOTHUB_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gemini-2.5-pro-preview',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert trading analyst. Reply with exactly one word: BUY or SELL. Nothing else.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 10,
-        temperature: 0.5
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('BotHub API error:', response.status, errorText);
-      throw new Error(`BotHub API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
-
-    console.log('AI Response:', content);
-
-    // Parse direction from AI response; if AI returns empty/garbage, use deterministic fallback
-    const parsed = parseAiDirection(content);
-    const aiDirection = parsed ?? pickFallbackAiDirection(cacheKey, now);
-    if (!parsed) {
-      console.log('AI direction not detected, using fallback aiDirection:', aiDirection);
-    }
-
-    // INVERT the AI direction - if AI says BUY, we show SELL and vice versa
-    const direction = aiDirection === 'BUY' ? 'SELL' : 'BUY';
-
-    console.log('AI said:', aiDirection, '-> Inverted to:', direction);
-
-    // Calculate probability with weighted distribution for variety
-    const ranges = [
-      { min: 58, max: 67, weight: 25 },
-      { min: 68, max: 77, weight: 35 },
-      { min: 78, max: 86, weight: 30 },
-      { min: 87, max: 94, weight: 10 }
-    ];
+    // Calculate probability - simple random range 65-92%
+    let probability: number;
     
-    const roll = Math.random() * 100;
-    let cumulative = 0;
-    let selectedRange = ranges[1];
-    
-    for (const range of ranges) {
-      cumulative += range.weight;
-      if (roll < cumulative) {
-        selectedRange = range;
-        break;
-      }
-    }
-    
-    let probability = randomInt(selectedRange.min, selectedRange.max);
-
-    // If user requested an "improved" signal, ensure probability increases logically
     if (typeof minProbability === 'number' && Number.isFinite(minProbability)) {
+      // Improved signal - increase from previous
       const prev = Math.floor(minProbability);
-      const min = Math.min(94, Math.max(58, prev + 1));
+      const min = Math.min(94, Math.max(65, prev + 1));
       const max = 95;
       probability = min >= max ? max : randomInt(min, max);
+    } else {
+      // Normal signal - 65-92%
+      probability = randomInt(65, 92);
     }
 
-    // Simple reason based on direction
     const reason = lang === "ru" 
       ? (direction === 'BUY' ? "Технический анализ указывает на рост" : "Технический анализ указывает на снижение")
       : (direction === 'BUY' ? "Technical analysis indicates upward movement" : "Technical analysis indicates downward movement");
@@ -172,13 +82,13 @@ Reply with one word: BUY or SELL`;
       timestamp: new Date().toISOString()
     };
 
-    // Cache the signal so ALL users get the same one
+    // Cache for all users
     signalCache.set(cacheKey, {
       signal: result,
       expiresAt: now + SIGNAL_TTL
     });
 
-    console.log('Generated NEW signal for all users:', result);
+    console.log('Generated signal:', result);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
